@@ -2,17 +2,7 @@ import { create } from 'zustand';
 import { supabase } from './supabaseClient';
 import { products as initialProducts } from '../data/products';
 
-// Helper to load/save to localStorage
-const loadLocalInventory = () => {
-    try {
-        const saved = localStorage.getItem('raines-inventory-v3'); // FORCE REFRESH V3
-        if (saved) return JSON.parse(saved);
-    } catch (e) {
-        console.error("Error loading local inventory", e);
-    }
-    // Ensure we always return an array, even if initialProducts is undefined for some reason
-    return Array.isArray(initialProducts) ? initialProducts : [];
-};
+const CATEGORY_ORDER = [
   "PROMOZIONI",
   "PRODOTTI CHIMICI",
   "ATTREZZATURE",
@@ -28,7 +18,17 @@ const loadLocalInventory = () => {
 
 const sackKeywords = ["SACCO","SACCHI","BUSTA","BUSTE","NETTEZZA"];
 
-
+// Helper to load/save to localStorage
+const loadLocalInventory = () => {
+    try {
+        const saved = localStorage.getItem('raines-inventory-v3'); // FORCE REFRESH V3
+        if (saved) return JSON.parse(saved);
+    } catch (e) {
+        console.error("Error loading local inventory", e);
+    }
+    // Ensure we always return an array, even if initialProducts is undefined for some reason
+    return Array.isArray(initialProducts) ? initialProducts : [];
+};
 
 const saveLocalInventory = (inventory) => {
     try {
@@ -38,31 +38,26 @@ const saveLocalInventory = (inventory) => {
     }
 };
 
-
 const useStore = create((set, get) => ({
     // --- Auth State ---
     user: null,
     isAuthenticated: false,
     authLoading: true,
 
-
     // Catalog State - Start with empty, will be filled by fetchCatalog
     inventory: [],
     categories: ['All'],
     loading: false,
-
 
     // Catalog Builder State
     catalogItems: [],
     catalogDiscount: 0,
     catalogExpirationDate: null,
 
-
     setCatalogMetadata: (metadata) => set((state) => ({
         catalogDiscount: metadata.discount !== undefined ? metadata.discount : state.catalogDiscount,
         catalogExpirationDate: metadata.expirationDate !== undefined ? metadata.expirationDate : state.catalogExpirationDate
     })),
-
 
     // --- Catalog Actions ---
     fetchCatalog: async () => {
@@ -72,7 +67,6 @@ const useStore = create((set, get) => ({
                 .from('catalogo')
                 .select('*')
                 .order('codice_articolo', { ascending: true });
-
 
             if (error) {
                 console.error("Error fetching catalog:", error);
@@ -105,7 +99,7 @@ const useStore = create((set, get) => ({
                     formato_cartone: p.formato_cartone || '',
                     unita_vendita: p.unita_vendita || '',
                     iva: parseFloat(p.iva) || 0,
-                    costo_al_metro: parseFloat(p.costo_al_metro) || 0,
+                    costo_al_meter: parseFloat(p.costo_al_metro) || 0,
                     immagine_locale: p.immagine_locale || '',
                 })).sort((a, b) => {
                     // Category sorting
@@ -119,10 +113,10 @@ const useStore = create((set, get) => ({
                     // Sack prioritization
                     if (a.category.toUpperCase() === 'SACCHI') {
                         const aIsSack = sackKeywords.some(key => 
-                            (a.name?.toUpperCase().includes(key) || a.description?.toUpperCase().includes(key))
+                            (a.name?.toUpperCase().includes(key) || (a.description || '').toUpperCase().includes(key))
                         );
                         const bIsSack = sackKeywords.some(key => 
-                            (b.name?.toUpperCase().includes(key) || b.description?.toUpperCase().includes(key))
+                            (b.name?.toUpperCase().includes(key) || (b.description || '').toUpperCase().includes(key))
                         );
                         if (aIsSack && !bIsSack) return -1;
                         if (!aIsSack && bIsSack) return 1;
@@ -145,17 +139,37 @@ const useStore = create((set, get) => ({
 
     // --- Catalog Builder Actions ---
     addToCatalog: (product) => set((state) => {
-        // No more quantity stacking as per user request. 
-        // Every addition creates a new instance with quantity 1.
         const newCatalogItems = [...state.catalogItems, { ...product, instanceId: crypto.randomUUID(), quantity: 1 }];
-
-
-        return {
-            catalogItems: newCatalogItems
-        };
+        return { catalogItems: newCatalogItems };
     }),
-
 
     removeFromCatalog: (instanceId) => set((state) => {
         const newCatalogItems = state.catalogItems.filter(i => i.instanceId !== instanceId);
-        return {
+        return { catalogItems: newCatalogItems };
+    }),
+
+    clearCatalog: () => set({ catalogItems: [] }),
+
+    updateQuantity: (instanceId, delta) => set((state) => {
+        const newCatalogItems = state.catalogItems.map(i => {
+            if (i.instanceId === instanceId) {
+                const newQuantity = Math.max(1, i.quantity + delta);
+                return { ...i, quantity: newQuantity };
+            }
+            return i;
+        });
+        return { catalogItems: newCatalogItems };
+    }),
+
+    setNote: (instanceId, note) => set((state) => {
+        const newCatalogItems = state.catalogItems.map(i => {
+            if (i.instanceId === instanceId) {
+                return { ...i, note: note };
+            }
+            return i;
+        });
+        return { catalogItems: newCatalogItems };
+    })
+}));
+
+export default useStore;
