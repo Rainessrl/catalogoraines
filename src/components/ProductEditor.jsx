@@ -126,6 +126,7 @@ export const ProductEditor = () => {
             if (uploadError) {
                 // Se il bucket 'catalog' non esiste, proviamo a usare 'product-images' come fallback
                 console.warn('Bucket catalog non trovato, ripiego su product-images');
+                                    const { error: fallbackError } = await supabase.storage
                     .from('product-images')
                     .upload(`products/${fileName}`, blob, {
                         contentType: 'image/svg+xml',
