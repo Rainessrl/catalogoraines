@@ -126,7 +126,7 @@ export const ProductEditor = () => {
             if (uploadError) {
                 // Se il bucket 'catalog' non esiste, proviamo a usare 'product-images' come fallback
                 console.warn('Bucket catalog non trovato, ripiego su product-images');
-                                    const { error: fallbackError } = await supabase.storage
+                const { error: fallbackError } = await supabase.storage
                     .from('product-images')
                     .upload(`products/${fileName}`, blob, {
                         contentType: 'image/svg+xml',
@@ -135,11 +135,9 @@ export const ProductEditor = () => {
                 
                 if (fallbackError) throw fallbackError;
 
-
                 const { data: publicData } = supabase.storage
                     .from('product-images')
                     .getPublicUrl(`products/${fileName}`);
-
 
                 setFormData(prev => ({ ...prev, image_url: publicData.publicUrl }));
                 setPreviewUrl(publicData.publicUrl);
@@ -148,11 +146,9 @@ export const ProductEditor = () => {
                     .from('catalog')
                     .getPublicUrl(filePath);
 
-
                 setFormData(prev => ({ ...prev, image_url: publicData.publicUrl }));
                 setPreviewUrl(publicData.publicUrl);
             }
-
 
             setUploadProgress('Completato!');
         } catch (error) {
@@ -161,18 +157,15 @@ export const ProductEditor = () => {
             setUploadProgress('Errore');
         } finally {
             setUploading(false);
-            // Reset input per permettere re-upload dello stesso file se necessario
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
-
 
     const handleRemoveImage = () => {
         setPreviewUrl('');
         setFormData(prev => ({ ...prev, image_url: '' }));
         setUploadProgress('');
     };
-
 
     const handleSave = async () => {
         if (!formData.id || !formData.name) {
@@ -205,7 +198,6 @@ export const ProductEditor = () => {
 
                 if (error) throw error;
             } else {
-                // CONTROLLO UNICITA: Verifichiamo se il codice esiste gia
                 const { data: existing, error: checkError } = await supabase
                     .from('catalogo')
                     .select('codice_articolo')
@@ -227,7 +219,7 @@ export const ProductEditor = () => {
             }
 
             await useStore.getState().fetchCatalog();
-            onClose();
+            setOpen(false);
         } catch (error) {
             console.error('Save error:', error);
             alert('Errore durante il salvataggio: ' + error.message);
@@ -236,6 +228,204 @@ export const ProductEditor = () => {
         }
     };
 
-
     return (
         <Dialog 
+            open={open} 
+            onClose={() => setOpen(false)}
+            fullWidth
+            maxWidth="md"
+        >
+            <DialogTitle>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="h6">
+                        {isEditing ? 'Modifica Prodotto' : 'Nuovo Prodotto'}
+                    </Typography>
+                    <IconButton onClick={() => setOpen(false)}>
+                        <CloseIcon />
+                    </IconButton>
+                </Box>
+            </DialogTitle>
+            <DialogContent dividers>
+                <Grid container spacing={2}>
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            label="Codice Articolo"
+                            name="id"
+                            value={formData.id}
+                            onChange={handleChange}
+                            disabled={isEditing}
+                            required
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={8}>
+                        <TextField
+                            fullWidth
+                            label="Nome Prodotto"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Grid>
+                    <Grid item xs={12}>
+                        <TextField
+                            fullWidth
+                            label="Descrizione Breve (Specifiche)"
+                            name="description"
+                            value={formData.description}
+                            onChange={handleChange}
+                            multiline
+                            rows={2}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            label="Prezzo (€)"
+                            name="price"
+                            type="number"
+                            value={formData.price}
+                            onChange={handleChange}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            select
+                            label="Categoria"
+                            name="category"
+                            value={formData.category}
+                            onChange={handleChange}
+                        >
+                            {categories.map((cat) => (
+                                <MenuItem key={cat} value={cat}>
+                                    {cat}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            label="IVA (%)"
+                            name="iva"
+                            value={formData.iva}
+                            onChange={handleChange}
+                        />
+                    </Grid>
+                    <Grid item xs={12}>
+                        <Typography variant="subtitle2" gutterBottom>
+                            Immagine Prodotto
+                        </Typography>
+                        <Box border="1px dashed #ccc" borderRadius={1} p={2} textAlign="center">
+                            {previewUrl ? (
+                                <Box position="relative" display="inline-block">
+                                    <Avatar
+                                        src={previewUrl}
+                                        variant="rounded"
+                                        sx={{ width: 150, height: 150, border: '1px solid #eee' }}
+                                    />
+                                    <IconButton
+                                        size="small"
+                                        onClick={handleRemoveImage}
+                                        sx={{
+                                            position: 'absolute',
+                                            top: -10,
+                                            right: -10,
+                                            backgroundColor: 'error.main',
+                                            color: 'white',
+                                            '&:hover': { backgroundColor: 'error.dark' }
+                                        }}
+                                    >
+                                        <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                </Box>
+                            ) : (
+                                <Box
+                                    onClick={() => fileInputRef.current?.click()}
+                                    sx={{ cursor: 'pointer', py: 3 }}
+                                >
+                                    <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                                    <Typography color="textSecondary">
+                                        Clicca per caricare un'immagine
+                                    </Typography>
+                                    <Typography variant="caption" color="textSecondary">
+                                        Verrà automaticamente scontornata e ottimizzata
+                                    </Typography>
+                                </Box>
+                            )}
+                            <input
+                                type="file"
+                                hidden
+                                ref={fileInputRef}
+                                accept="image/*"
+                                onChange={handleFileChange}
+                            />
+                            {uploading && (
+                                <Box mt={2}>
+                                    <CircularProgress size={24} sx={{ mb: 1 }} />
+                                    <Typography variant="caption" display="block">
+                                        {uploadProgress}
+                                    </Typography>
+                                </Box>
+                            )}
+                        </Box>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            label="Formato Cartone"
+                            name="formato_cartone"
+                            value={formData.formato_cartone}
+                            onChange={handleChange}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            label="Unità Vendita"
+                            name="unita_vendita"
+                            value={formData.unita_vendita}
+                            onChange={handleChange}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            label="Costo al Metro"
+                            name="costo_al_metro"
+                            type="number"
+                            value={formData.costo_al_metro}
+                            onChange={handleChange}
+                        />
+                    </Grid>
+                    <Grid item xs={12}>
+                        <TextField
+                            fullWidth
+                            label="Descrizione Estesa"
+                            name="extended_description"
+                            value={formData.extended_description}
+                            onChange={handleChange}
+                            multiline
+                            rows={4}
+                        />
+                    </Grid>
+                </Grid>
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+                <Button onClick={() => setOpen(false)} color="inherit">
+                    Annulla
+                </Button>
+                <Button
+                    onClick={handleSave}
+                    variant="contained"
+                    disabled={loading || uploading}
+                    startIcon={loading ? <CircularProgress size={20} /> : null}
+                >
+                    {isEditing ? 'Aggiorna' : 'Salva Prodotto'}
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
