@@ -1,6 +1,31 @@
 import { create } from 'zustand';
-import { supabase } from './supabaseClient';
+import { supabase, SUPABASE_URL } from './supabaseClient';
 import { products as initialProducts } from '../data/products';
+
+// Resolve image URL: converts relative paths to full Supabase Storage URLs
+const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/catalog`;
+const resolveImageUrl = (linkImmagine, immagineLocale) => {
+    if (!linkImmagine && !immagineLocale) return '';
+    
+    const link = linkImmagine || '';
+    
+    // If it's already a full URL (uploaded via catalog app), use as-is
+    if (link.startsWith('http')) return link;
+    
+    // If it's a relative path like /images/A1206.svg, resolve to Supabase bucket
+    if (link.startsWith('/images/')) {
+        const fileName = link.replace('/images/', '');
+        return `${STORAGE_BASE}/raines_images_cleaned/${fileName}`;
+    }
+    
+    // Fallback: try immagine_locale field
+    if (immagineLocale) {
+        return `${STORAGE_BASE}/raines_images_cleaned/${immagineLocale}`;
+    }
+    
+    // Last resort: return the raw value
+    return link;
+};
 
 const CATEGORY_ORDER = [
   "PROMOZIONI",
@@ -91,8 +116,8 @@ const useStore = create((set, get) => ({
                     extended_description: p.descrizione_estesa || '',
                     price: parseFloat(p.costo) || 0,
                     category: p.categoria || 'Altro',
-                    image: p.link_immagine ? `${p.link_immagine}?v=${timestamp}` : '',
-                    image_url: p.link_immagine || '',
+                    image: (() => { const resolved = resolveImageUrl(p.link_immagine, p.immagine_locale); return resolved ? `${resolved}?v=${timestamp}` : ''; })(),
+                    image_url: resolveImageUrl(p.link_immagine, p.immagine_locale),
                     formato_cartone: p.formato_cartone || '',
                     unita_vendita: p.unita_vendita || '',
                     iva: parseFloat(p.iva) || 0,
